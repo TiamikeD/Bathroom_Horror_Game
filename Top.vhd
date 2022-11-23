@@ -81,6 +81,9 @@ architecture beh of Top is
    signal DataOut: std_logic_vector(WORD_SIZE_NB-1 downto 0);
 
    signal graph_rgb: std_logic_vector(2 downto 0);
+   signal background_rgb: std_logic_vector(2 downto 0);
+   signal player_rgb: std_logic_vector(2 downto 0);
+   signal level_bar_rgb: std_logic_vector(2 downto 0);
    signal hdmi_enable_out: STD_LOGIC;
    
    --Boolean signals for player actions
@@ -145,14 +148,33 @@ architecture beh of Top is
    pixel_x_std <= std_logic_vector(pixel_x(9 downto 0));
    pixel_y_std <= std_logic_vector(pixel_y);
    pong_i: entity work.Background(bathroom)
-      port map (clk=>Clk, reset=>reset, video_on=>hdmi_enable_out, pixel_x=>pixel_x_std, pixel_y=>pixel_y_std, graph_rgb=>graph_rgb);
+      port map (clk=>Clk, reset=>reset, video_on=>hdmi_enable_out, pixel_x=>pixel_x_std, pixel_y=>pixel_y_std, graph_rgb=>background_rgb);
    
    player_1: entity work.player(player_1)
-      port map (clk=>Clk, reset=>reset, btn=>btn, video_on=>hdmi_enable_out, pixel_x=>pixel_x_std, pixel_y=>pixel_y_std, graph_rgb=>graph_rgb, 
+      port map (clk=>Clk, reset=>reset, btn=>btn, video_on=>hdmi_enable_out, pixel_x=>pixel_x_std, pixel_y=>pixel_y_std, graph_rgb=>player_rgb, 
                 doing_assignment=>doing_assignment, 
                 holding_breath=>holding_breath, 
                 blocking_view=>blocking_view,
                 blocking_door=>blocking_door);
+                
+   level_progress_bar: entity work.level_timer_bar(Class_Bar)
+      port map (clk=>Clk, 
+                reset=>reset, 
+                video_on=>hdmi_enable_out, 
+                pixel_x=>pixel_x_std, 
+                pixel_y=>pixel_y_std, 
+                graph_rgb=>level_bar_rgb);
+
+   renderer: entity work.renderer(renderer_arch)
+      port map (clk=>Clk, 
+                reset=>reset, 
+                video_on=>hdmi_enable_out, 
+                pixel_x=>pixel_x_std, 
+                pixel_y=>pixel_y_std, 
+                background_rgb => background_rgb,
+                player_rgb => player_rgb,
+                level_bar_rgb => level_bar_rgb,
+                rgb_out => graph_rgb);
 
 --    hdmi_red <= std_logic_vector(resize(pixel_x, 8)) when sw_r = '1' else (others => '0');
 --    hdmi_green <= std_logic_vector(resize(pixel_y, 8)) when sw_g = '1' else (others => '0');
