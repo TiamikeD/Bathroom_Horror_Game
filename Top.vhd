@@ -43,7 +43,8 @@ entity Top is
       hdmi_hsync : out STD_LOGIC;
       hdmi_vsync : out STD_LOGIC;
       hdmi_enable : out STD_LOGIC;
-      btn: in std_logic_vector(3 downto 0)
+      btn: in std_logic_vector(3 downto 0);
+      on_brd_btn: in std_logic_vector(3 downto 0)
   --    DEBUG_IN: in std_logic;
    --   DEBUG_OUT: out std_logic
       );
@@ -84,6 +85,12 @@ architecture beh of Top is
    signal background_rgb: std_logic_vector(2 downto 0);
    signal player_rgb: std_logic_vector(2 downto 0);
    signal level_bar_rgb: std_logic_vector(2 downto 0);
+   signal student_rgb: std_logic_vector(2 downto 0);
+   signal teacher_rgb: std_logic_vector(2 downto 0);
+   signal dean_rgb: std_logic_vector(2 downto 0);
+   signal dean_danger_normal: std_logic;
+   signal dean_danger_urgent: std_logic;
+   signal dean_game_over: std_logic;
    signal hdmi_enable_out: STD_LOGIC;
    
    --Boolean signals for player actions
@@ -151,11 +158,13 @@ architecture beh of Top is
       port map (clk=>Clk, reset=>reset, video_on=>hdmi_enable_out, pixel_x=>pixel_x_std, pixel_y=>pixel_y_std, graph_rgb=>background_rgb);
    
    player_1: entity work.player(player_1)
-      port map (clk=>Clk, reset=>reset, btn=>btn, video_on=>hdmi_enable_out, pixel_x=>pixel_x_std, pixel_y=>pixel_y_std, graph_rgb=>player_rgb, 
+      port map (clk=>Clk, reset=>reset, on_brd_btn=>on_brd_btn, video_on=>hdmi_enable_out, pixel_x=>pixel_x_std, pixel_y=>pixel_y_std, graph_rgb=>player_rgb, 
                 doing_assignment=>doing_assignment, 
                 holding_breath=>holding_breath, 
                 blocking_view=>blocking_view,
-                blocking_door=>blocking_door);
+                blocking_door=>blocking_door,
+                dean_danger_normal=>dean_danger_normal,
+                dean_game_over=>dean_game_over);
                 
    level_progress_bar: entity work.level_timer_bar(Class_Bar)
       port map (clk=>Clk, 
@@ -174,7 +183,41 @@ architecture beh of Top is
                 background_rgb => background_rgb,
                 player_rgb => player_rgb,
                 level_bar_rgb => level_bar_rgb,
+                student_rgb => student_rgb,
+                teacher_rgb => teacher_rgb,
+                dean_rgb => dean_rgb,
                 rgb_out => graph_rgb);
+                
+   student_npc: entity work.student_npc(student)
+      port map(clk=>Clk, 
+               reset=>reset, 
+               video_on=>hdmi_enable_out, 
+               pixel_x=>pixel_x_std, 
+               pixel_y=>pixel_y_std,
+               SUMMON_STUDENT=>on_brd_btn(3),
+               graph_rgb=>student_rgb);
+
+   teacher_npc: entity work.teacher_npc(teacher)
+      port map(clk=>Clk, 
+               reset=>reset, 
+               video_on=>hdmi_enable_out, 
+               pixel_x=>pixel_x_std, 
+               pixel_y=>pixel_y_std,
+               SUMMON_TEACHER=>on_brd_btn(3),
+               graph_rgb=>teacher_rgb);
+               
+   dean_npc: entity work.dean_npc(dean)
+      port map(clk=>Clk, 
+               reset=>reset, 
+               video_on=>hdmi_enable_out, 
+               pixel_x=>pixel_x_std, 
+               pixel_y=>pixel_y_std,
+               SUMMON_DEAN=>on_brd_btn(3),
+               graph_rgb=>dean_rgb,
+               blocked_door=>blocking_door,
+               dean_danger_normal=>dean_danger_normal,
+               doing_assignment=>doing_assignment,
+               dean_game_over=>dean_game_over);
 
 --    hdmi_red <= std_logic_vector(resize(pixel_x, 8)) when sw_r = '1' else (others => '0');
 --    hdmi_green <= std_logic_vector(resize(pixel_y, 8)) when sw_g = '1' else (others => '0');

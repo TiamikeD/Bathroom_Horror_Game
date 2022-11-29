@@ -1,47 +1,20 @@
-----------------------------------------------------------------------------------
--- Company: 
--- Engineer: 
--- 
--- Create Date: 11/18/2022 12:56:11 PM
--- Design Name: 
--- Module Name: player - player_1
--- Project Name: 
--- Target Devices: 
--- Tool Versions: 
--- Description: 
--- 
--- Dependencies: 
--- 
--- Revision:
--- Revision 0.01 - File Created
--- Additional Comments:
--- 
-----------------------------------------------------------------------------------
-
-
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
-
--- Uncomment the following library declaration if using
--- arithmetic functions with Signed or Unsigned values
---use IEEE.NUMERIC_STD.ALL;
-
--- Uncomment the following library declaration if instantiating
--- any Xilinx leaf cells in this code.
---library UNISIM;
---use UNISIM.VComponents.all;
+use ieee.numeric_std.all;
 
 entity player is
    Port ( 
       clk, reset: in std_logic;
-      btn: in std_logic_vector(3 downto 0);
+      on_brd_btn: in std_logic_vector(3 downto 0);
       video_on: in std_logic;
       pixel_x, pixel_y: in std_logic_vector(9 downto 0);
       graph_rgb: out std_logic_vector(2 downto 0);
       doing_assignment: out std_logic;
       holding_breath: out std_logic;
       blocking_view: out std_logic;
-      blocking_door: out std_logic
+      blocking_door: out std_logic;
+      dean_danger_normal: in std_logic;
+      dean_game_over: in std_logic
    );
 end player;
 
@@ -188,24 +161,160 @@ architecture player_1 of player is
    
    type backpack is array(0 to 15) of std_logic_vector(0 to 8); --backpack is 16x9
    constant backpack_ROM: backpack := (
-      "111100000",
-      "111111000",
-      "110111100",
-      "110011100",
-      "100001110",
-      "100000111",
-      "101000011",
-      "101000011",
-      "101000011",
-      "101000011",
-      "100000011",
-      "100000011",
-      "110000111",
-      "110000111",
-      "111111110",
-      "111111100"
+      "000001111",
+      "000111111",
+      "001111011",
+      "001110011",
+      "011100001",
+      "111000001",
+      "110000101",
+      "110000101",
+      "110000101",
+      "110000101",
+      "110000001",
+      "110000001",
+      "111000011",
+      "111000011",
+      "011111111",
+      "001111111"
    );
-begin
 
+-- Signal used to control speed of ball and how often pushbuttons are checked for paddle movement.
+   signal refr_tick: std_logic;
+
+-- x, y coordinates (0,0 to (639, 479)
+   signal pix_x, pix_y: unsigned(9 downto 0);
+   
+   signal face_on, assignment_on, hand_on, backpack_on: std_logic;
+   signal face_rgb, assignment_rgb, hand_rgb, backpack_rgb: std_logic_vector(2 downto 0);
+   
+   signal face_addr, face_col: unsigned(9 downto 0);
+   signal face_data: std_logic_vector(30 downto 0);
+   signal face_bit: std_logic;
+   constant FACE_POS_X: integer := 214;
+   constant FACE_POS_Y: integer := 316;
+   constant FACE_POS_Y_BLOCK_DOOR: integer := 220;
+   
+   signal assignment_addr, assignment_col: unsigned(9 downto 0);
+   signal assignment_data: std_logic_vector(14 downto 0);
+   signal assignment_bit: std_logic;
+   constant ASSIGNMENT_POS_X: integer := 214;
+   constant ASSIGNMENT_POS_Y: integer := 304;
+   
+   signal hand_addr, hand_col: unsigned(9 downto 0);
+   signal hand_data: std_logic_vector(9 downto 0);
+   signal hand_bit: std_logic;
+   constant HAND_POS_X: integer := 234;
+   constant HAND_POS_Y: integer := 210;
+   
+   signal backpack_addr, backpack_col: unsigned(9 downto 0);
+   signal backpack_data: std_logic_vector(8 downto 0);
+   signal backpack_bit: std_logic;
+   constant BACKPACK_POS_X: integer := 180;
+   constant BACKPACK_POS_Y: integer := 328;
+   
+begin
+   face_rgb <= "111";
+   assignment_rgb <= "111";
+   hand_rgb <= "111";
+   backpack_rgb <= "111";
+   
+   pix_x <= unsigned(pixel_x);
+   pix_y <= unsigned(pixel_y);
+   
+   refr_tick <= '1' when (pix_y = 1) and (pix_x = 1) else '0';
+   
+   face_addr <= pix_y - FACE_POS_Y;-- when (on_brd_btn(0) = '0') else pix_y - FACE_POS_Y_BLOCK_DOOR;
+   face_data <= HAPPY_ROM(to_integer(face_addr)) when (dean_danger_normal = '0') else 
+                LOSE_ROM(to_integer(face_addr)) when (dean_game_over = '1') else -- switch to the LOSE face when the "game over" signal is raised.
+                SCARED_ROM(to_integer(face_addr)); -- Switch to the scared face when danger flags are reaised 
+   face_col <= pix_x - FACE_POS_X;
+   face_bit <= face_data(to_integer(face_col));
+   face_on <= '1' when (pix_x >= FACE_POS_X) and 
+                       (pix_x <= FACE_POS_X + 30) and
+                       (pix_y >= FACE_POS_Y) and
+                       (pix_y <= FACE_POS_Y + 30) and
+                       (face_bit = '1') else '0';
+   
+   assignment_addr <= pix_y - ASSIGNMENT_POS_Y;
+   assignment_data <= ASSIGNMENT_ROM(to_integer(assignment_addr));
+   assignment_col <= pix_x - ASSIGNMENT_POS_X;
+   assignment_bit <= assignment_data(to_integer(assignment_col));
+   assignment_on <= '1' when (pix_x >= ASSIGNMENT_POS_X) and 
+                       (pix_x <= ASSIGNMENT_POS_X + 14) and
+                       (pix_y >= ASSIGNMENT_POS_Y) and
+                       (pix_y <= ASSIGNMENT_POS_Y + 13) and
+                       (on_brd_btn(0) = '1') and (on_brd_btn(1) = '0') and
+                       (assignment_bit = '1') else '0';
+                       
+   hand_addr <= pix_y - HAND_POS_Y;
+   hand_data <= HAND_ROM(to_integer(hand_addr));
+   hand_col <= pix_x - HAND_POS_X;
+   hand_bit <= hand_data(to_integer(hand_col));
+   hand_on <= '1' when (pix_x >= HAND_POS_X) and 
+                       (pix_x <= HAND_POS_X + 9) and
+                       (pix_y >= HAND_POS_Y) and
+                       (pix_y <= HAND_POS_Y + 20) and
+                       (on_brd_btn(1) = '1') and
+                       (hand_bit = '1') else '0';
+                       
+   backpack_addr <= pix_y - BACKPACK_POS_Y;
+   backpack_data <= BACKPACK_ROM(to_integer(backpack_addr));
+   backpack_col <= pix_x - BACKPACK_POS_X;
+   backpack_bit <= backpack_data(to_integer(backpack_col));
+   backpack_on <= '1' when (pix_x >= BACKPACK_POS_X) and 
+                       (pix_x <= BACKPACK_POS_X + 8) and
+                       (pix_y >= BACKPACK_POS_Y) and
+                       (pix_y <= BACKPACK_POS_Y + 16) and
+                       (on_brd_btn(2) = '1') and (on_brd_btn(1) = '0') and
+                       (backpack_bit = '1') else '0';
+   
+   process(refr_tick, pix_x, pix_y)
+      begin
+         if (video_on = '0') then
+            graph_rgb <= "000";
+         else
+            if (face_on = '1') then
+               graph_rgb <= face_rgb;
+            elsif (assignment_on = '1') then
+               graph_rgb <= assignment_rgb;
+               doing_assignment <= '1';
+            elsif (hand_on = '1') then
+               graph_rgb <= hand_rgb;
+            elsif (backpack_on = '1') then
+               graph_rgb <= backpack_rgb;
+               blocking_view <= '1';
+            else
+               graph_rgb <= "000";
+            end if;
+            
+            if (on_brd_btn(1) = '0') then
+               blocking_door <= '0';
+            else
+               blocking_door <= '1';
+            end if;
+            
+            if (on_brd_btn(2) = '0') or (on_brd_btn(1) = '1') then
+               blocking_view <= '0';
+            end if;
+            
+            if (on_brd_btn(0) = '0') or (on_brd_btn(1) = '1') then
+               doing_assignment <= '0';
+            end if;
+         end if;
+   end process;
+                       
 
 end player_1;
+
+
+
+
+
+
+
+
+
+
+
+
