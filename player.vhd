@@ -213,6 +213,9 @@ architecture player_1 of player is
    constant BACKPACK_POS_X: integer := 180;
    constant BACKPACK_POS_Y: integer := 328;
    
+   signal blocking_view_reg, blocking_view_next: std_logic;
+   signal blocking_door_reg, blocking_door_next: std_logic;
+   
 begin
    face_rgb <= "111";
    assignment_rgb <= "111";
@@ -244,7 +247,7 @@ begin
                        (pix_x <= ASSIGNMENT_POS_X + 14) and
                        (pix_y >= ASSIGNMENT_POS_Y) and
                        (pix_y <= ASSIGNMENT_POS_Y + 13) and
-                       (on_brd_btn(0) = '1') and (on_brd_btn(1) = '0') and
+                       (on_brd_btn(0) = '1') and (on_brd_btn(1) = '0') and --Can't do other tasks while blocking door
                        (assignment_bit = '1') else '0';
                        
    hand_addr <= pix_y - HAND_POS_Y;
@@ -266,8 +269,21 @@ begin
                        (pix_x <= BACKPACK_POS_X + 8) and
                        (pix_y >= BACKPACK_POS_Y) and
                        (pix_y <= BACKPACK_POS_Y + 16) and
-                       (on_brd_btn(2) = '1') and (on_brd_btn(1) = '0') and
+                       (on_brd_btn(2) = '1') and (on_brd_btn(1) = '0') and --Can't do other tasks while blocking door
                        (backpack_bit = '1') else '0';
+   process(clk, reset)
+      begin
+      if (reset = '1') then
+         blocking_view_reg <= '0';
+         blocking_door_reg <= '0';
+      elsif (clk'event and clk = '1') then
+         blocking_view_reg <= blocking_view_next;
+         blocking_door_reg <= blocking_door_next;
+      end if;
+   end process;
+   
+   blocking_view <= blocking_view_reg;
+   blocking_door <= blocking_door_reg;
    
    process(refr_tick, pix_x, pix_y)
       begin
@@ -281,24 +297,23 @@ begin
                doing_assignment <= '1';
             elsif (hand_on = '1') then
                graph_rgb <= hand_rgb;
+               blocking_door_next <= '1';
             elsif (backpack_on = '1') then
                graph_rgb <= backpack_rgb;
-               blocking_view <= '1';
+               blocking_view_next <= '1';
             else
                graph_rgb <= "000";
             end if;
             
-            if (on_brd_btn(1) = '0') then
-               blocking_door <= '0';
-            else
-               blocking_door <= '1';
+            if (on_brd_btn(1) = '0') then --BLOCK DOOR WITH HAND
+               blocking_door_next <= '0';
             end if;
             
-            if (on_brd_btn(2) = '0') or (on_brd_btn(1) = '1') then
-               blocking_view <= '0';
+            if (on_brd_btn(2) = '0') or (on_brd_btn(1) = '1') then -- BLOCK STALL WITH BACKPACK
+               blocking_view_next <= '0';
             end if;
             
-            if (on_brd_btn(0) = '0') or (on_brd_btn(1) = '1') then
+            if (on_brd_btn(0) = '0') or (on_brd_btn(1) = '1') then 
                doing_assignment <= '0';
             end if;
          end if;

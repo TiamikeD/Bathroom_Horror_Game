@@ -91,6 +91,8 @@ architecture beh of Top is
    signal dean_danger_normal: std_logic;
    signal dean_danger_urgent: std_logic;
    signal dean_game_over: std_logic;
+   signal teacher_game_over: std_logic;
+   signal teacher_cant_hear: std_logic;
    signal hdmi_enable_out: STD_LOGIC;
    
    --Boolean signals for player actions
@@ -186,7 +188,9 @@ architecture beh of Top is
                 student_rgb => student_rgb,
                 teacher_rgb => teacher_rgb,
                 dean_rgb => dean_rgb,
-                rgb_out => graph_rgb);
+                rgb_out => graph_rgb,
+                dean_game_over => dean_game_over,
+                teacher_game_over => teacher_game_over);
                 
    student_npc: entity work.student_npc(student)
       port map(clk=>Clk, 
@@ -194,7 +198,8 @@ architecture beh of Top is
                video_on=>hdmi_enable_out, 
                pixel_x=>pixel_x_std, 
                pixel_y=>pixel_y_std,
-               SUMMON_STUDENT=>on_brd_btn(3),
+               SUMMON_STUDENT=>btn(0),
+               teacher_cant_hear=>teacher_cant_hear,
                graph_rgb=>student_rgb);
 
    teacher_npc: entity work.teacher_npc(teacher)
@@ -203,16 +208,21 @@ architecture beh of Top is
                video_on=>hdmi_enable_out, 
                pixel_x=>pixel_x_std, 
                pixel_y=>pixel_y_std,
-               SUMMON_TEACHER=>on_brd_btn(3),
-               graph_rgb=>teacher_rgb);
+               SUMMON_TEACHER=>btn(1),
+               doing_assignment=>doing_assignment,
+               blocked_stall=>blocking_view,
+               teacher_cant_hear=>teacher_cant_hear,
+               graph_rgb=>teacher_rgb,
+               teacher_game_over =>teacher_game_over);
                
    dean_npc: entity work.dean_npc(dean)
       port map(clk=>Clk, 
                reset=>reset, 
+               on_brd_btn=>on_brd_btn,
                video_on=>hdmi_enable_out, 
                pixel_x=>pixel_x_std, 
                pixel_y=>pixel_y_std,
-               SUMMON_DEAN=>on_brd_btn(3),
+               SUMMON_DEAN=>btn(2),
                graph_rgb=>dean_rgb,
                blocked_door=>blocking_door,
                dean_danger_normal=>dean_danger_normal,

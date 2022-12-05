@@ -12,7 +12,9 @@ entity renderer is
       student_rgb: in std_logic_vector(2 downto 0);
       teacher_rgb: in std_logic_vector(2 downto 0);
       dean_rgb: in std_logic_vector(2 downto 0);
-      rgb_out: out  std_logic_vector(2 downto 0)
+      rgb_out: out  std_logic_vector(2 downto 0);
+      dean_game_over: in std_logic;
+      teacher_game_over: in std_logic
    );
 end renderer;
 
@@ -24,7 +26,9 @@ begin
 
    process(background_rgb, player_rgb, level_bar_rgb)
       begin
-      if (player_rgb /= "000") then
+      if (dean_game_over = '1') or (teacher_game_over = '1') then
+         rgb_out <= "100";
+      elsif (player_rgb /= "000") then
          rgb_out <= player_rgb;
       elsif (dean_rgb /= "000") then
          rgb_out <= dean_rgb;

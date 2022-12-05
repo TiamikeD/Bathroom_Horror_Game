@@ -5,6 +5,7 @@ use IEEE.NUMERIC_STD.ALL;
 entity dean_npc is
    Port ( 
       clk, reset: in std_logic;
+      on_brd_btn: in std_logic_vector(3 downto 0);
       video_on: in std_logic;
       pixel_x, pixel_y: in std_logic_vector(9 downto 0);
       SUMMON_DEAN: in std_logic;
@@ -29,6 +30,7 @@ architecture dean of dean_npc is
    
    signal dean_x_reg, dean_x_next: unsigned(9 downto 0);
    signal dean_y_reg, dean_y_next: unsigned(9 downto 0);
+   signal dean_game_over_reg, dean_game_over_next: std_logic;
    signal dean_rgb: std_logic_vector(2 downto 0);
    signal dean_on, dean_on_en: std_logic;
    signal clk_divider_reg, clk_divider_next: unsigned(9 downto 0);
@@ -46,12 +48,14 @@ begin
          dean_x_reg <= (others => '0');
          dean_y_reg <= (others => '0');
          clk_divider_reg <= (others => '0');
+         dean_game_over_reg <= '0';
          caught_doing_assignment_reg <= '0';
       elsif (clk'event and clk = '1') then
          state_reg <= state_next;
          dean_x_reg <= dean_x_next;
          dean_y_reg <= dean_y_next;
          clk_divider_reg <= clk_divider_next;
+         dean_game_over_reg <= dean_game_over_next;
          caught_doing_assignment_reg <= caught_doing_assignment_next;
       end if;
    end process;
@@ -63,13 +67,15 @@ begin
    dean_on <= '1' when (pix_x >= dean_x_reg) and (pix_x <= dean_x_reg + dean_width) and
                        (pix_y >= dean_y_reg) and (pix_y <= dean_y_reg + dean_height) and
                        (dean_on_en = '1') else '0';
+   dean_game_over <= dean_game_over_reg;
 
-   process(dean_on, video_on, dean_x_reg, dean_y_reg, refr_tick, clk_divider_reg)
+   process(dean_on, video_on, dean_x_reg, dean_y_reg, refr_tick, clk_divider_reg, caught_doing_assignment_reg)
       begin
       clk_divider_next <= clk_divider_reg;
       dean_x_next <= dean_x_reg;
       dean_y_next <= dean_y_reg;
       state_next <= state_reg;
+      dean_game_over_next <= dean_game_over_reg;
       caught_doing_assignment_next <= caught_doing_assignment_reg;
       
       if (video_on = '0') then
@@ -84,7 +90,7 @@ begin
       
       case state_reg is
          when idle => -- wait to be summoned
-            dean_game_over <= '0';
+            dean_game_over_next <= '0';
             dean_on_en <= '0';
             --caught_doing_assignment_next <= '0';
             dean_x_next <= to_unsigned(dean_origin_x, dean_x_next'length);
@@ -95,24 +101,20 @@ begin
             end if;
             
          when walk_in => -- walk into the bathroom animation
-            dean_game_over <= '0';
+            dean_game_over_next <= '0';
             dean_on_en <= '1';
-            if (refr_tick = '1') then
-               if (dean_y_reg > 60) then
-                  dean_danger_normal <= '1';
-                  if (doing_assignment = '1') then
-                     caught_doing_assignment_next <= '1'; -- Enhanced hearing: When in the bathroom, check if student is doing the assignment
-                  end if;
+            if (dean_y_reg > 60) then
+               dean_danger_normal <= '1';
+               if (doing_assignment = '1') then
+                  caught_doing_assignment_next <= '1'; -- Enhanced hearing: When in the bathroom, check if student is doing the assignment
                end if;
-               
+            end if;
+            if (refr_tick = '1') then
                if (dean_x_reg >= 472) and (dean_y_reg < 70) then
                   dean_x_next <= dean_x_reg - dean_velocity;
                elsif (dean_y_reg <= 75) and (dean_x_reg >= 470)  then
                   dean_y_next <= dean_y_reg + dean_velocity;
                elsif (dean_x_reg >= 214) or (dean_y_reg <= 170) then
-                  if (doing_assignment = '1') then
-                     caught_doing_assignment_next <= '1';
-                  end if;
                   dean_x_next <= dean_x_reg - dean_velocity;
                   if (dean_y_reg <= 170) then
                      dean_y_next <= dean_y_reg + dean_velocity;
@@ -128,12 +130,14 @@ begin
             
          when watch_stall => -- Stand outside player stall
             dean_danger_normal <= '1';
-            if (caught_doing_assignment_reg = '1') then -- and (blocked_door = '0') then
-               state_next <= breach_stall; -- If the player was doing assignment while the dean is in the bathroom, breach the stall
+            if (caught_doing_assignment_reg = '1') and (blocked_door = '0') then
+               if (on_brd_btn(1) = '0') then
+                  state_next <= breach_stall; -- If the player was doing assignment while the dean is in the bathroom, breach the stall
+               end if;
             elsif (doing_assignment = '1') then
                state_next <= breach_stall;
             end if;
-            dean_game_over <= '0';
+            dean_game_over_next <= '0';
             dean_on_en <= '1';
             if (refr_tick = '1') then
                clk_divider_next <= clk_divider_reg + 1;
@@ -147,16 +151,15 @@ begin
             dean_on_en <= '1';
             if (refr_tick = '1') then
                if (dean_y_reg <= 310) then
-                  dean_game_over <= '1';
                   dean_y_next <= dean_y_reg + dean_breach_velocity;
                else
-                  dean_game_over <= '1'; -- Raise flag to end the game
+                  dean_game_over_next <= '1'; -- Raise flag to end the game
                end if;
             end if;
             
          when walk_out => -- If the student wasn't caught, leave the bathroom animation
          dean_danger_normal <= '0';
-         dean_game_over <= '0';
+         dean_game_over_next <= '0';
             dean_on_en <= '1';
             if (refr_tick = '1') then
                if (dean_y_reg >= 75) and (dean_x_reg <= 230) then
